@@ -1,10 +1,8 @@
-name: 🚀 Deploy — Comida Rapidita React
+﻿name: "🚀 Deploy — Comida Rapidita React"
 
-# ─────────────────────────────────────────────────────────────
-#  Repo   : luisalvaradodev10s/comida-rapidita-react
-#  URL    : https://luisalvaradodev10s.github.io/comida-rapidita-react/
-#  Branch : main
-# ─────────────────────────────────────────────────────────────
+# Repo   : luisalvaradodev10s/comida-rapidita-react
+# URL    : https://luisalvaradodev10s.github.io/comida-rapidita-react/
+# Branch : main
 
 on:
   push:
@@ -12,7 +10,7 @@ on:
     paths:
       - 'comida-rapidita-react/**'
       - '.github/workflows/deploy-react.yml'
-  workflow_dispatch:          # disparo manual desde GitHub → Actions
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -21,18 +19,15 @@ permissions:
 
 concurrency:
   group: pages-react
-  cancel-in-progress: true    # cancela deploy anterior si llega otro push
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '20'
   WORKING_DIR: comida-rapidita-react
-  # base exacto para GitHub Pages de este repo
   VITE_BASE: /comida-rapidita-react/
 
 jobs:
-  # ───────────────────────────────────────────────────────────
   build:
-  # ───────────────────────────────────────────────────────────
     name: 🔨 Build React
     runs-on: ubuntu-latest
 
@@ -40,38 +35,40 @@ jobs:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
 
-      - name: 🟢 Node.js ${{ env.NODE_VERSION }}
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: ${{ env.WORKING_DIR }}/package-lock.json
 
-      - name: 📦 Instalar dependencias
+      - name: 📦 Install dependencies
         working-directory: ${{ env.WORKING_DIR }}
         run: npm ci
 
-      - name: 🏗️ Build producción
+      - name: 🧪 Optional test (uncomment si es necesario)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: npm test -- --watchAll=false
+        continue-on-error: true
+
+      - name: 🏗️ Build production
         working-directory: ${{ env.WORKING_DIR }}
         run: npm run build
         env:
           VITE_BASE_URL: ${{ env.VITE_BASE }}
 
-      # Inyecta 404.html para que el router no rompa en refresh
-      - name: 🔧 Agregar 404.html (SPA fallback)
+      - name: 🔧 Add 404 fallback (SPA)
         run: cp ${{ env.WORKING_DIR }}/dist/index.html ${{ env.WORKING_DIR }}/dist/404.html
 
-      - name: 📤 Subir artefacto
+      - name: 📤 Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ env.WORKING_DIR }}/dist
 
-  # ───────────────────────────────────────────────────────────
   deploy:
-  # ───────────────────────────────────────────────────────────
-    name: 🌐 GitHub Pages
-    needs: build
+    name: 🌐 Deploy to GitHub Pages
     runs-on: ubuntu-latest
+    needs: build
 
     environment:
       name: github-pages
@@ -82,6 +79,7 @@ jobs:
         id: deploy
         uses: actions/deploy-pages@v4
 
-      - name: 🔗 URL del sitio
+      - name: 🔗 Deployment output
         run: |
-          echo "✅ Sitio disponible en: ${{ steps.deploy.outputs.page_url }}"
+          echo "✅ Sitio desplegado en: ${{ steps.deploy.outputs.page_url }}"
+          echo "🌐 React app: https://luisalvaradodev10s.github.io/comida-rapidita-react/"
