@@ -10,5 +10,5 @@ const isProd = process.env.NODE_ENV === 'production';
 
 export default defineConfig({
   plugins: [vue()],
-  base: isProd ? '/comida-rapidita-react/vue/' : '/',
+  base: isProd ? '/comida-rapidita-react/' : '/',
 });
