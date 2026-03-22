@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '21'
   WORKING_DIR: .
   VITE_BASE: /comida-rapidita-react/
 
