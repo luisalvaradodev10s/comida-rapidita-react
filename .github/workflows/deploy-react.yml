@@ -1,0 +1,87 @@
+name: 🚀 Deploy — Comida Rapidita React
+
+# ─────────────────────────────────────────────────────────────
+#  Repo   : luisalvaradodev10s/comida-rapidita-react
+#  URL    : https://luisalvaradodev10s.github.io/comida-rapidita-react/
+#  Branch : main
+# ─────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'comida-rapidita-react/**'
+      - '.github/workflows/deploy-react.yml'
+  workflow_dispatch:          # disparo manual desde GitHub → Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-react
+  cancel-in-progress: true    # cancela deploy anterior si llega otro push
+
+env:
+  NODE_VERSION: '20'
+  WORKING_DIR: comida-rapidita-react
+  # base exacto para GitHub Pages de este repo
+  VITE_BASE: /comida-rapidita-react/
+
+jobs:
+  # ───────────────────────────────────────────────────────────
+  build:
+  # ───────────────────────────────────────────────────────────
+    name: 🔨 Build React
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.WORKING_DIR }}/package-lock.json
+
+      - name: 📦 Instalar dependencias
+        working-directory: ${{ env.WORKING_DIR }}
+        run: npm ci
+
+      - name: 🏗️ Build producción
+        working-directory: ${{ env.WORKING_DIR }}
+        run: npm run build
+        env:
+          VITE_BASE_URL: ${{ env.VITE_BASE }}
+
+      # Inyecta 404.html para que el router no rompa en refresh
+      - name: 🔧 Agregar 404.html (SPA fallback)
+        run: cp ${{ env.WORKING_DIR }}/dist/index.html ${{ env.WORKING_DIR }}/dist/404.html
+
+      - name: 📤 Subir artefacto
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.WORKING_DIR }}/dist
+
+  # ───────────────────────────────────────────────────────────
+  deploy:
+  # ───────────────────────────────────────────────────────────
+    name: 🌐 GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: 🚀 Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: 🔗 URL del sitio
+        run: |
+          echo "✅ Sitio disponible en: ${{ steps.deploy.outputs.page_url }}"

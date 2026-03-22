@@ -1,58 +1,149 @@
-# 🍟 Comida Rapidita — React (Vite)
+# 🍟 GitHub Actions CI/CD — Comida Rapidita
 
-Sitio web de pedidos para Comida Rapidita, construido con **React 18 + Vite**.
+> **Repositorio:** `luisalvaradodev10s/comida-rapidita-react`
 
-## Estructura
+---
+
+## 🌐 URLs después del deploy
+
+| Proyecto | URL |
+|---|---|
+| 🏠 Índice | `https://luisalvaradodev10s.github.io/comida-rapidita-react/` |
+| ⚛️ React | `https://luisalvaradodev10s.github.io/comida-rapidita-react/react/` |
+| 💚 Vue | `https://luisalvaradodev10s.github.io/comida-rapidita-react/vue/` |
+| 📱 Expo Web | `https://luisalvaradodev10s.github.io/comida-rapidita-react/expo/` |
+
+---
+
+## 📁 Estructura que debe tener tu repo
 
 ```
-comida-rapidita-react/
-├── index.html
-├── vite.config.js
-├── package.json
-└── src/
-    ├── main.jsx
-    ├── App.jsx
-    ├── styles/
-    │   └── global.css
-    ├── data/
-    │   └── products.js        ← todos los productos y precios
-    └── components/
-        ├── Hero.jsx
-        ├── NavBar.jsx
-        ├── ProductCard.jsx
-        ├── ComboCard.jsx
-        ├── CartBar.jsx
-        ├── QRModal.jsx
-        └── Toast.jsx
+comida-rapidita-react/          ← raíz del repositorio
+├── .github/
+│   └── workflows/
+│       ├── deploy-all.yml      ← ⭐ workflow principal
+│       ├── deploy-react.yml    ← solo React
+│       ├── deploy-vue.yml      ← solo Vue
+│       ├── deploy-expo.yml     ← solo Expo
+│       └── ci-check.yml        ← CI en Pull Requests
+│
+├── comida-rapidita-react/      ← proyecto React
+│   ├── vite.config.js          ← ⚠️ reemplazar con vite.config.react.js
+│   ├── package.json
+│   ├── package-lock.json       ← ⚠️ necesario para npm ci
+│   └── src/
+│
+├── comida-rapidita-vue/        ← proyecto Vue
+│   ├── vite.config.js          ← ⚠️ reemplazar con vite.config.vue.js
+│   ├── package.json
+│   ├── package-lock.json
+│   └── src/
+│
+└── comida-rapidita-expo/       ← proyecto Expo
+    ├── App.js
+    ├── package.json
+    ├── package-lock.json
+    └── src/
 ```
 
-## Cómo correr
+---
+
+## 🚀 Configuración paso a paso
+
+### Paso 1 — Clonar el repo
 
 ```bash
-npm install
-npm run dev
+git clone https://github.com/luisalvaradodev10s/comida-rapidita-react.git
+cd comida-rapidita-react
 ```
 
-Abre http://localhost:5173
-
-## Build para producción
+### Paso 2 — Copiar los archivos de este ZIP
 
 ```bash
-npm run build
-# Sube la carpeta /dist a Netlify, Vercel, etc.
+# Copiar la carpeta .github al repositorio
+cp -r .github/ /ruta/a/tu/repo/
+
+# Reemplazar vite.config.js de React
+cp vite.config.react.js /ruta/a/tu/repo/comida-rapidita-react/vite.config.js
+
+# Reemplazar vite.config.js de Vue
+cp vite.config.vue.js /ruta/a/tu/repo/comida-rapidita-vue/vite.config.js
 ```
 
-## Personalizar
+### Paso 3 — Generar los package-lock.json
 
-- **Productos y precios** → edita `src/data/products.js`
-- **WhatsApp** → cambia `WHATSAPP` en `src/data/products.js`
-- **Colores** → edita las variables CSS en `src/styles/global.css`
+> **Requerido** — `npm ci` falla sin el lockfile
 
-## Funcionalidades
+```bash
+cd comida-rapidita-react && npm install && cd ..
+cd comida-rapidita-vue   && npm install && cd ..
+cd comida-rapidita-expo  && npm install && cd ..
+```
 
-- ✅ Menú completo con categorías
-- ✅ Carrito de pedidos
-- ✅ Envío por WhatsApp automático
-- ✅ Código QR para compartir
-- ✅ Diseño responsive (mobile-first)
-- ✅ Badges NEW y ESPECIAL
+### Paso 4 — Habilitar GitHub Pages
+
+1. Ir a tu repo en GitHub
+2. **Settings** → **Pages** → **Source**
+3. Seleccionar: **GitHub Actions** ← importante, no "Deploy from branch"
+4. Guardar
+
+### Paso 5 — Commit y push
+
+```bash
+git add .
+git commit -m "ci: agregar GitHub Actions workflows"
+git push origin main
+```
+
+El workflow `deploy-all.yml` se dispara automáticamente. En ~3 minutos el sitio estará en línea.
+
+---
+
+## ⚡ Workflows
+
+### `deploy-all.yml` — Principal ⭐
+- **Cuándo:** cada push a `main`
+- **Qué hace:** compila React, Vue y Expo en **paralelo** y los despliega juntos
+- **Manual:** GitHub → Actions → "Deploy TODOS" → Run workflow → elige qué desplegar
+
+### `deploy-react.yml` / `deploy-vue.yml` / `deploy-expo.yml`
+- Se activan solo cuando detectan cambios en su carpeta respectiva
+- Útil para actualizaciones rápidas de un solo proyecto
+
+### `ci-check.yml` — CI en Pull Requests
+- Se ejecuta automáticamente en cada PR hacia `main`
+- Compila los 3 proyectos y reporta errores antes del merge
+- Bloquea el merge si algo falla
+
+---
+
+## 🔄 Deploy manual
+
+1. Ir a **Actions** en GitHub
+2. Click en **"Deploy TODOS — Comida Rapidita"**
+3. Click en **"Run workflow"** (botón verde derecha)
+4. Elegir: `all` / `react` / `vue` / `expo`
+5. Confirmar
+
+---
+
+## ❓ Errores comunes
+
+### `npm ci` falla — "can't find package-lock.json"
+```bash
+cd comida-rapidita-react && npm install
+git add package-lock.json && git commit -m "chore: add lockfile" && git push
+```
+
+### Assets cargan en 404 (CSS, JS en blanco)
+→ El `vite.config.js` no tiene el `base` correcto.
+→ Asegúrate de reemplazar con los archivos `vite.config.react.js` / `vite.config.vue.js` incluidos.
+
+### La página muestra 404 al refrescar
+→ El workflow ya agrega un `404.html` automáticamente para SPAs.
+
+### Expo export falla
+→ Verifica que `app.json` tenga esto:
+```json
+"web": { "bundler": "metro" }
+```

@@ -1,0 +1,135 @@
+name: ✅ CI — Verificar builds
+
+# ─────────────────────────────────────────────────────────────
+#  Se ejecuta en cada Pull Request hacia main
+#  Verifica que los 3 proyectos compilen sin errores
+#  antes de permitir hacer merge
+# ─────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ───────────────────────────────────────────────────────────
+  check-react:
+  # ───────────────────────────────────────────────────────────
+    name: ⚛️ Verificar React
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: comida-rapidita-react/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: comida-rapidita-react
+        run: npm ci
+
+      - name: 🏗️ Build
+        working-directory: comida-rapidita-react
+        run: npm run build
+        env:
+          VITE_BASE_URL: /comida-rapidita-react/
+
+      - name: ✅ Validar dist
+        run: |
+          test -f comida-rapidita-react/dist/index.html || (echo "❌ index.html no encontrado" && exit 1)
+          echo "✅ React build OK — $(du -sh comida-rapidita-react/dist | cut -f1)"
+
+  # ───────────────────────────────────────────────────────────
+  check-vue:
+  # ───────────────────────────────────────────────────────────
+    name: 💚 Verificar Vue
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: comida-rapidita-vue/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: comida-rapidita-vue
+        run: npm ci
+
+      - name: 🏗️ Build
+        working-directory: comida-rapidita-vue
+        run: npm run build
+        env:
+          VITE_BASE_URL: /comida-rapidita-react/vue/
+
+      - name: ✅ Validar dist
+        run: |
+          test -f comida-rapidita-vue/dist/index.html || (echo "❌ index.html no encontrado" && exit 1)
+          echo "✅ Vue build OK — $(du -sh comida-rapidita-vue/dist | cut -f1)"
+
+  # ───────────────────────────────────────────────────────────
+  check-expo:
+  # ───────────────────────────────────────────────────────────
+    name: 📱 Verificar Expo Web
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: comida-rapidita-expo/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: comida-rapidita-expo
+        run: npm ci
+
+      - name: 🌐 Expo CLI
+        run: npm install -g @expo/cli
+
+      - name: 🏗️ Export web
+        working-directory: comida-rapidita-expo
+        run: npx expo export --platform web
+
+      - name: ✅ Validar dist
+        run: |
+          test -d comida-rapidita-expo/dist || (echo "❌ dist/ no encontrado" && exit 1)
+          echo "✅ Expo Web build OK — $(du -sh comida-rapidita-expo/dist | cut -f1)"
+
+  # ───────────────────────────────────────────────────────────
+  resumen:
+  # ───────────────────────────────────────────────────────────
+    name: 📋 Resumen CI
+    runs-on: ubuntu-latest
+    needs: [check-react, check-vue, check-expo]
+    if: always()
+
+    steps:
+      - name: 📋 Imprimir resultados
+        run: |
+          echo ""
+          echo "══════════════════════════════"
+          echo "  RESULTADOS CI"
+          echo "══════════════════════════════"
+          echo "  ⚛️  React : ${{ needs.check-react.result }}"
+          echo "  💚  Vue   : ${{ needs.check-vue.result }}"
+          echo "  📱  Expo  : ${{ needs.check-expo.result }}"
+          echo "══════════════════════════════"
+
+          if [[ "${{ needs.check-react.result }}" == "failure" || \
+                "${{ needs.check-vue.result }}"   == "failure" || \
+                "${{ needs.check-expo.result }}"  == "failure" ]]; then
+            echo "❌ Hay builds fallidos — no se puede hacer merge"
+            exit 1
+          fi
+          echo "✅ Todos los builds pasaron — listo para merge"

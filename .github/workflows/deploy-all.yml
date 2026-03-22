@@ -1,0 +1,316 @@
+name: 🚀 Deploy TODOS — Comida Rapidita
+
+# ─────────────────────────────────────────────────────────────
+#  Repo    : luisalvaradodev10s/comida-rapidita-react
+#  Owner   : luisalvaradodev10s
+#  Branch  : main
+#
+#  URLs resultantes:
+#    React → https://luisalvaradodev10s.github.io/comida-rapidita-react/
+#    Vue   → https://luisalvaradodev10s.github.io/comida-rapidita-react/vue/
+#    Expo  → https://luisalvaradodev10s.github.io/comida-rapidita-react/expo/
+# ─────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      proyecto:
+        description: '¿Qué desplegar?'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - react
+          - vue
+          - expo
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-master
+  cancel-in-progress: true
+
+# ─── Variables globales ───────────────────────────────────────
+env:
+  NODE_VERSION: '20'
+  OWNER: luisalvaradodev10s
+  REPO: comida-rapidita-react
+  BASE_URL: /comida-rapidita-react
+
+# ═════════════════════════════════════════════════════════════
+# JOB 1 — BUILD REACT  (base = /comida-rapidita-react/)
+# ═════════════════════════════════════════════════════════════
+jobs:
+  build-react:
+    name: ⚛️ Build React
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.proyecto == 'all' ||
+      github.event.inputs.proyecto == 'react'
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: comida-rapidita-react/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: comida-rapidita-react
+        run: npm ci
+
+      - name: 🏗️ Build
+        working-directory: comida-rapidita-react
+        run: npm run build
+        env:
+          # React queda en la raíz del repo
+          VITE_BASE_URL: ${{ env.BASE_URL }}/
+
+      # SPA fallback — evita 404 al refrescar la página
+      - name: 🔧 404.html fallback
+        run: cp comida-rapidita-react/dist/index.html comida-rapidita-react/dist/404.html
+
+      - name: 📤 Upload React artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-react
+          path: comida-rapidita-react/dist
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════
+  # JOB 2 — BUILD VUE  (base = /comida-rapidita-react/vue/)
+  # ═══════════════════════════════════════════════════════════
+  build-vue:
+    name: 💚 Build Vue
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.proyecto == 'all' ||
+      github.event.inputs.proyecto == 'vue'
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: comida-rapidita-vue/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: comida-rapidita-vue
+        run: npm ci
+
+      - name: 🏗️ Build
+        working-directory: comida-rapidita-vue
+        run: npm run build
+        env:
+          VITE_BASE_URL: ${{ env.BASE_URL }}/vue/
+
+      - name: 🔧 404.html fallback
+        run: cp comida-rapidita-vue/dist/index.html comida-rapidita-vue/dist/404.html
+
+      - name: 📤 Upload Vue artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-vue
+          path: comida-rapidita-vue/dist
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════
+  # JOB 3 — BUILD EXPO WEB  (base = /comida-rapidita-react/expo/)
+  # ═══════════════════════════════════════════════════════════
+  build-expo:
+    name: 📱 Build Expo Web
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.proyecto == 'all' ||
+      github.event.inputs.proyecto == 'expo'
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: comida-rapidita-expo/package-lock.json
+
+      - name: 📦 npm ci
+        working-directory: comida-rapidita-expo
+        run: npm ci
+
+      - name: 🌐 Instalar Expo CLI
+        run: npm install -g @expo/cli
+
+      - name: 🏗️ Export web
+        working-directory: comida-rapidita-expo
+        run: npx expo export --platform web
+
+      - name: 📤 Upload Expo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-expo
+          path: comida-rapidita-expo/dist
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════
+  # JOB 4 — MERGE + PÁGINA ÍNDICE + DEPLOY
+  # ═══════════════════════════════════════════════════════════
+  deploy:
+    name: 🌐 Deploy a GitHub Pages
+    runs-on: ubuntu-latest
+    needs: [build-react, build-vue, build-expo]
+    # Se ejecuta si AL MENOS un build fue exitoso
+    if: |
+      always() && (
+        needs.build-react.result == 'success' ||
+        needs.build-vue.result   == 'success' ||
+        needs.build-expo.result  == 'success'
+      )
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: 📁 Crear estructura de carpetas
+        run: |
+          mkdir -p /tmp/site/vue
+          mkdir -p /tmp/site/expo
+
+      # ── Descargar builds (continue-on-error por si alguno se saltó) ──
+      - name: ⬇️ Download React build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-react
+          path: /tmp/site
+        continue-on-error: true
+
+      - name: ⬇️ Download Vue build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-vue
+          path: /tmp/site/vue
+        continue-on-error: true
+
+      - name: ⬇️ Download Expo build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-expo
+          path: /tmp/site/expo
+        continue-on-error: true
+
+      # ── Página índice raíz con links a los 3 proyectos ──
+      - name: 📄 Crear index.html raíz
+        run: |
+          DEPLOY_DATE=$(date -u '+%d/%m/%Y %H:%M UTC')
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+
+          cat > /tmp/site/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Comida Rapidita 🍟</title>
+            <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+            <style>
+              *{box-sizing:border-box;margin:0;padding:0}
+              body{background:#0d0d0d;color:#f5f5f5;font-family:'Nunito',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;overflow-x:hidden}
+              .bg-glow{position:fixed;top:0;left:50%;transform:translateX(-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(245,158,11,.12) 0%,transparent 70%);pointer-events:none}
+              h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,10vw,6rem);background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;text-align:center;line-height:1;margin-bottom:.5rem}
+              .sub{color:#888;font-size:.85rem;letter-spacing:3px;text-transform:uppercase;margin-bottom:.8rem;text-align:center}
+              .badge{display:inline-flex;align-items:center;gap:.4rem;background:rgba(245,158,11,.1);border:1px solid #f59e0b;border-radius:999px;padding:.35rem 1rem;font-size:.8rem;font-weight:700;color:#f59e0b;margin-bottom:2.5rem}
+              .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;width:100%;max-width:680px}
+              a.card{display:flex;flex-direction:column;align-items:center;gap:.5rem;background:#181818;border:1px solid #2a2a2a;border-radius:20px;padding:1.8rem 1.2rem;text-decoration:none;color:#f5f5f5;transition:border-color .2s,transform .2s,box-shadow .2s}
+              a.card:hover{border-color:#f59e0b;transform:translateY(-5px);box-shadow:0 8px 32px rgba(245,158,11,.18)}
+              .card-icon{font-size:3.2rem}
+              .card-label{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:#f59e0b;letter-spacing:2px}
+              .card-tech{font-size:.78rem;color:#888;text-align:center;line-height:1.4}
+              .card-arrow{font-size:.75rem;color:#555;margin-top:.4rem}
+              .info{margin-top:2.5rem;text-align:center}
+              .info-row{font-size:.75rem;color:#555;margin:.2rem 0}
+              .info-row span{color:#888}
+              @media(max-width:480px){.grid{grid-template-columns:1fr}}
+            </style>
+          </head>
+          <body>
+            <div class="bg-glow"></div>
+            <h1>Comida Rapidita</h1>
+            <p class="sub">San Diego 1473 · Santiago, Chile</p>
+            <div class="badge">🛵 Delivery hasta tu departamento</div>
+
+            <div class="grid">
+              <a class="card" href="./react/" title="React">
+                <span class="card-icon">⚛️</span>
+                <span class="card-label">React</span>
+                <span class="card-tech">React 18 + Vite<br>JavaScript</span>
+                <span class="card-arrow">Abrir →</span>
+              </a>
+              <a class="card" href="./vue/" title="Vue">
+                <span class="card-icon">💚</span>
+                <span class="card-label">Vue 3</span>
+                <span class="card-tech">Vue 3 + Vite<br>Composition API</span>
+                <span class="card-arrow">Abrir →</span>
+              </a>
+              <a class="card" href="./expo/" title="Expo">
+                <span class="card-icon">📱</span>
+                <span class="card-label">Expo Web</span>
+                <span class="card-tech">React Native Web<br>Expo SDK 51</span>
+                <span class="card-arrow">Abrir →</span>
+              </a>
+            </div>
+
+            <div class="info">
+              <p class="info-row">📦 Repositorio: <span>luisalvaradodev10s/comida-rapidita-react</span></p>
+              <p class="info-row">🔖 Commit: <span>DEPLOY_DATE_PLACEHOLDER</span></p>
+              <p class="info-row">📞 WhatsApp: <span>+56 9 3017 6239</span></p>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+
+          # Reemplazar el placeholder con la fecha y commit real
+          sed -i "s/DEPLOY_DATE_PLACEHOLDER/${DEPLOY_DATE} · ${SHORT_SHA}/" /tmp/site/index.html
+
+          echo "✅ index.html creado"
+          ls -la /tmp/site/
+
+      - name: 📤 Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: /tmp/site
+
+      - name: 🚀 Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: 🎉 Resumen del deploy
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════╗"
+          echo "║   🍟 COMIDA RAPIDITA — DEPLOY EXITOSO 🍟   ║"
+          echo "╠══════════════════════════════════════════════╣"
+          echo "║  🌐  ${{ steps.deploy.outputs.page_url }}"
+          echo "║  ⚛️   ${{ steps.deploy.outputs.page_url }}react/"
+          echo "║  💚  ${{ steps.deploy.outputs.page_url }}vue/"
+          echo "║  📱  ${{ steps.deploy.outputs.page_url }}expo/"
+          echo "╚══════════════════════════════════════════════╝"
