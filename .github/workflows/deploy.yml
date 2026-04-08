@@ -61,6 +61,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      # 6. Descargar el artefacto generado por el job build
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: github-pages
+          path: ./dist
+
       # 7. Desplegar en GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
